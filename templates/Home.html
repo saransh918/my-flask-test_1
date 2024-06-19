@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Home</title>
+	<style>
+		body {
+			background-color: white;
+		}
+		.button {
+			background-color: black;
+			color: white;
+			padding: 10px;
+			border: none;
+			border-radius: 5px;
+			margin: 10px;
+			font-size: 16px;
+			cursor: pointer;
+		}
+
+	</style>
+</head>
+<body>
+	<header>
+	</header>
+	<form action="{{ url_for('read_blob_route') }}" method="post">
+	<main>
+		<button type="submit" class = "button" name="submit_button" value="ADD NEW FILE">ADD NEW FILE</button>
+	</main><br><br>
+	</form>
+</body>
+</html>
