@@ -5,7 +5,7 @@ import os
 app = Flask(__name__)
 
 # Azure Blob Storage credentials
-AZURE_STORAGE_CONNECTION_STRING = 'DefaultEndpointsProtocol=https;AccountName=didq2024;AccountKey=ntayQbzAzlGjFbJYzdswvYkT/SUty3y2YOnLUjwLtMzWRV+VIEJL0JrU3UFya2HkJYxuz/RsHXO4+ASt7n99iQ==;EndpointSuffix=core.windows.net'
+AZURE_STORAGE_CONNECTION_STRING = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
 AZURE_CONTAINER_NAME = 'didqcontainer'
 AZURE_BLOB_NAME = 'DI_DQ.txt'
 
