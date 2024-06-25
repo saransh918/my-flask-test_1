@@ -67,7 +67,7 @@ def read_adls_file(container_name, file_path, num_rows=None):
 
 @app.route('/')
 def home():
-    return render_template('home.html')
+    return render_template('Home.html')
 
 @app.route('/read_file', methods=['POST'])
 def read_file():
@@ -90,7 +90,7 @@ def read_file():
     # Convert the DataFrame to CSV for display
     output = df.to_csv(index=False)
 
-    return render_template('result.html', content=output)
+    return render_template('Result.html', content=output)
 
 if __name__ == '__main__':
     app.run(debug=True)
