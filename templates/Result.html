@@ -1,37 +1,12 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>DataFrame Table</title>
-    <style>
-        .data {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .data th, .data td {
-            border: 1px solid black;
-            padding: 8px;
-            text-align: left;
-        }
-        .data th {
-            background-color: #f2f2f2;
-        }
-    </style>
+    <title>File Content</title>
 </head>
 <body>
-    <h1>Blob Content</h1>
+    <h1>File Content</h1>
     <pre>{{ content }}</pre>
-
-    <br><br>
-
-<button onclick="goBack()">Go Back</button>
-
-<script>
-        function goBack() {
-            window.history.back();
-        }
-    </script>
-
+    <br>
+    <button onclick="window.history.back()">Back</button>
 </body>
 </html>

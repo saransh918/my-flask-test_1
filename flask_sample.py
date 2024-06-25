@@ -69,7 +69,7 @@ def read_adls_file(container_name, file_path, num_rows=None):
 def home():
     return render_template('Home.html')
 
-@app.route('/read_file', methods=['POST'])
+@app.route('/read_file', methods=['GET', 'POST'])
 def read_file():
     file = request.form['file_name']
     container_name = "didqsynapsefilesystem"
