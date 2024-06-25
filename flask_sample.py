@@ -6,6 +6,7 @@ import pandas as pd
 from io import StringIO
 
 app = Flask(__name__)
+app.secret_key = 'testing'
 
 # Get the Azure ADLS account URL from environment variables
 AZURE_ADLS_ACCOUNT_URL = os.getenv('AZURE_ADLS_ACCOUNT_URL')
