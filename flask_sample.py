@@ -72,7 +72,7 @@ def home():
 @app.route('/read_file', methods=['GET', 'POST'])
 def read_file():
     file = request.form['file_name']
-    container_name = "didqsynapsefilesystem"
+    container_name = "didqynapsestorage"
     directory_path = "EMPLOYEE/"
     file_name = get_latest_adls_file(container_name, directory_path, file)
     print(file_name)
