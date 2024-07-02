@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Function to update the text box values
+            function updateTextBox1Value() {
+                var dropdown1Value = $('#condition1').val();
+                // Check if specific values are selected in dropdown 1
+                if (dropdown1Value === 'numeric fields' || dropdown1Value === 'date fields' || dropdown1Value === 'not null fields' || dropdown1Value === 'primary key') {
+                    $('#textbox1').val('NA');  // Autofill text box 1
+                } else {
+                    $('#textbox1').val('');  // Clear text box 1
+                }
+			}
+
+				function updateTextBox2Value() {
+					var dropdown2Value = $('#condition2').val();
+                // Check if specific values are selected in dropdown 2
+                if (dropdown2Value === 'numeric fields' || dropdown2Value === 'date fields' || dropdown2Value === 'not null fields' || dropdown2Value === 'primary key') {
+                    $('#textbox2').val('NA');  // Autofill text box 2
+                } else {
+                    $('#textbox2').val('');  // Clear text box 2
+                }
+				}
+
+				function updateTextBox3Value() {
+					var dropdown3Value = $('#condition3').val();
+				// Check if specific values are selected in dropdown 3
+                if (dropdown3Value === 'numeric fields' || dropdown3Value === 'date fields' || dropdown3Value === 'not null fields' || dropdown3Value === 'primary key') {
+                    $('#textbox3').val('NA');  // Autofill text box 3
+                } else {
+                    $('#textbox3').val('');  // Clear text box 3
+                }
+				}
+
+				function updateTextBox4Value() {
+					var dropdown4Value = $('#condition4').val();
+				// Check if specific values are selected in dropdown 4
+                if (dropdown4Value === 'numeric fields' || dropdown4Value === 'date fields' || dropdown4Value === 'not null fields' || dropdown4Value === 'primary key') {
+                    $('#textbox4').val('NA');  // Autofill text box 4
+                } else {
+                    $('#textbox4').val('');  // Clear text box 4
+                }
+				}
+
+
+            // Listen for changes in dropdown 1
+            $('#condition1').change(function() {
+                updateTextBox1Value();
+            });
+
+            // Listen for changes in dropdown 2
+            $('#condition2').change(function() {
+                updateTextBox2Value();
+            });
+			// Listen for changes in dropdown 3
+            $('#condition3').change(function() {
+                updateTextBox3Value();
+            });
+			// Listen for changes in dropdown 4
+            $('#condition4').change(function() {
+                updateTextBox4Value();
+            });
+        });
+    </script>
+
+	<title>Additional Rules</title>
+	<style>
+		body {
+			background-color: white;
+		}
+		h1 {
+			text-align: left;
+			color: black;
+			padding: 20px;
+			margin: 0;
+		}
+		h2 {
+			text-align: left;
+			color: black;
+			padding: 10px;
+			margin: 0;
+		}
+		.button {
+			background-color: black;
+			color: white;
+			padding: 10px;
+			border: none;
+			border-radius: 5px;
+			margin: 10px;
+			font-size: 16px;
+			cursor: pointer;
+		}
+	</style>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+</head>
+<body>
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <div id="flash-message" class="alert alert-success fade show" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            {% for message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+        <script>
+            $(document).ready(function() {
+                setTimeout(function() {
+                    $('#flash-message').fadeOut('slow');
+                }, 5000); // 5 seconds
+            });
+        </script>
+    {% endif %}
+{% endwith %} <br>
+
+<form id="myForm" action="{{ url_for('rules') }}" method="post">
+<h1>Select File for attaching rules!</h1>
+<label for="subcategory_dropdown">File:</label>
+  <select id="subcategory_dropdown" name="subcategory">
+    {% for subcategory in subcategories %}
+    <option value="{{ subcategory }}">{{ subcategory }}</option>
+    {% endfor %}
+  </select><br>
+<h2>Select Additional rules for this file!</h2>
+	<input type="text" id="column1" name="column1" placeholder="Column Names">
+	<select id="condition1" name="condition1">
+		<option value=""></option>
+		<option value="=">=</option>
+		<option value="contains">contains</option>
+		<option value="between">between</option>
+		<option value="<="><=</option>
+		<option value=">=">>=</option>
+		<option value="numeric fields">numeric fields</option>
+		<option value="date fields">date fields</option>
+		<option value="not null fields">not null fields</option>
+		<option value="primary key">primary key</option>
+	</select>
+	<input type="text" id="textbox1" name="textbox1" placeholder="Values"><br>
+
+		<input type="text" id="column2" name="column2" placeholder="Column Names">
+	<select id="condition2" name="condition2">
+		<option value=""></option>
+		<option value="=">=</option>
+		<option value="contains">contains</option>
+		<option value="between">between</option>
+		<option value="<="><=</option>
+		<option value=">=">>=</option>
+		<option value="numeric fields">numeric fields</option>
+		<option value="date fields">date fields</option>
+		<option value="not null fields">not null fields</option>
+		<option value="primary key">primary key</option>
+	</select>
+	<input type="text" id="textbox2" name="textbox2" placeholder="Values"><br>
+
+
+	<input type="text" id="column3" name="column3" placeholder="Column Names">
+	<select id="condition3" name="condition3">
+		<option value=""></option>
+		<option value="=">=</option>
+		<option value="contains">contains</option>
+		<option value="between">between</option>
+		<option value="<="><=</option>
+		<option value=">=">>=</option>
+		<option value="numeric fields">numeric fields</option>
+		<option value="date fields">date fields</option>
+		<option value="not null fields">not null fields</option>
+		<option value="primary key">primary key</option>
+	</select>
+	<input type="text" id="textbox3" name="textbox3" placeholder="Values"><br>
+
+
+		<input type="text" id="column4" name="column4" placeholder="Column Names">
+	<select id="condition4" name="condition4">
+		<option value=""></option>
+		<option value="=">=</option>
+		<option value="contains">contains</option>
+		<option value="between">between</option>
+		<option value="<="><=</option>
+		<option value=">=">>=</option>
+		<option value="numeric fields">numeric fields</option>
+		<option value="date fields">date fields</option>
+		<option value="not null fields">not null fields</option>
+		<option value="primary key">primary key</option>
+	</select>
+	<input type="text" id="textbox4" name="textbox4" placeholder="Values"><br>
+
+<button type="submit" class = "button"  name="submit_button" value="HOME">HOME</button>
+<button type="submit" onclick="myFunction()" class = "button"  name="submit_button" value="ADD RULE">ADD RULE</button>
+
+<input type="hidden" name="response" value="">
+
+</form>
+<script>
+function myFunction() {
+  var result = confirm("Do you want to proceed?");
+  if (result == true) {
+    document.getElementById("myForm").elements.namedItem("response").value = "OK";
+  } else {
+  }
+  document.getElementById("myForm").submit();
+}
+</script>
+
+</body>
+</html>

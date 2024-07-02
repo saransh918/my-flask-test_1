@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>File Details</title>
+    <style>
+		body {
+			background-color: white;
+		}
+		h1 {
+			text-align: left;
+			color: black;
+			padding: 20px;
+			margin: 0;
+		}
+		.button {
+			background-color: black;
+			color: white;
+			padding: 10px;
+			border: none;
+			border-radius: 5px;
+			margin: 10px;
+			font-size: 16px;
+			cursor: pointer;
+		}
+	</style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+  $(document).ready(function() {
+    $('#category_dropdown').change(function() {
+      var selected_category = $(this).val();
+      var subcategories = {{ subcategories|tojson }};
+      var options = subcategories[selected_category];
+
+      $('#subcategory_dropdown').empty();
+
+      $.each(options, function(i, option) {
+        $('#subcategory_dropdown').append($('<option>').text(option).attr('value', option));
+      });
+    });
+  });
+</script>
+  </head>
+  <body>
+    <h1>Select Container and File to see the details!</h1>
+    <form action="{{ url_for('file_details') }}" method="post">
+  <label for="category_dropdown">Container:</label>
+  <select id="category_dropdown" name="category">
+    {% for category in categories %}
+    <option value="{{ category }}">{{ category }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="subcategory_dropdown">File:</label>
+  <select id="subcategory_dropdown" name="subcategory">
+    {% for subcategory in subcategories %}
+    <option value="{{ subcategory }}">{{ subcategory }}</option>
+    {% endfor %}
+  </select><br><br>
+      <button type="submit" class = "button" name="submit_button" value="VIEW DETAILS">VIEW DETAILS</button>
+		<button type="submit" class = "button" name="submit_button" value="VALIDATE FILE">VALIDATE FILE</button>
+		<button type="submit" class = "button"  name="submit_button" value="HOME">HOME</button>
+</form>
+  </body>
+</html>

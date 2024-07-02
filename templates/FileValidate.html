@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>File Validation Home</title>
+    <style>
+		body {
+			background-color: white;
+		}
+		h1 {
+			text-align: left;
+			color: black;
+			padding: 20px;
+			margin: 0;
+		}
+		.button {
+			background-color: black;
+			color: white;
+			padding: 10px;
+			border: none;
+			border-radius: 5px;
+			margin: 10px;
+			font-size: 16px;
+			cursor: pointer;
+		}
+	</style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+  $(document).ready(function() {
+    $('#category_dropdown').change(function() {
+      var selected_category = $(this).val();
+      var subcategories = {{ subcategories|tojson }};
+      var options = subcategories[selected_category];
+
+      $('#subcategory_dropdown').empty();
+
+      $.each(options, function(i, option) {
+        $('#subcategory_dropdown').append($('<option>').text(option).attr('value', option));
+      });
+    });
+  });
+	</script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  </head>
+  <body>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <div id="flash-message" class="alert alert-success fade show" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            {% for message in messages %}
+                <p>{{ message }}</p>
+            {% endfor %}
+        </div>
+        <script>
+            $(document).ready(function() {
+                setTimeout(function() {
+                    $('#flash-message').fadeOut('slow');
+                }, 5000); // 5 seconds
+            });
+        </script>
+    {% endif %}
+{% endwith %} <br>
+    <h1>Select Container and File to validate!</h1>
+    <form action="{{ url_for('file_validate') }}" method="post">
+  <label for="category_dropdown">Container:</label>
+  <select id="category_dropdown" name="category">
+    {% for category in categories %}
+    <option value="{{ category }}">{{ category }}</option>
+    {% endfor %}
+  </select>
+
+  <label for="subcategory_dropdown">File:</label>
+  <select id="subcategory_dropdown" name="subcategory">
+    {% for subcategory in subcategories %}
+    <option value="{{ subcategory }}">{{ subcategory }}</option>
+    {% endfor %}
+  </select><br><br>
+      <button type="submit" class = "button" name="submit_button" value="VALIDATE">VALIDATE</button>
+    <button type="submit" class = "button"  name="submit_button" value="HOME">HOME</button><br>
+</form>
+  </body>
+</html>

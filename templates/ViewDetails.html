@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ViewFileDetails</title>
+    <style>
+        .plot-container {
+            display: flex;
+        }
+        .plot {
+            flex: 1; /* Distribute available space evenly */
+            padding: 10px;
+            text-align: center; /* Center the plot within the container */
+        }
+        body {
+			background-color: white;
+		}
+		h1 {
+			text-align: left;
+			color: black;
+			padding: 20px;
+			margin: 0;
+		}
+		.button {
+			background-color: black;
+			color: white;
+			padding: 10px;
+			border: none;
+			border-radius: 5px;
+			margin: 10px;
+			font-size: 16px;
+			cursor: pointer;
+		}
+    </style>
+</head>
+<body>
+  <form action="{{ url_for('action') }}" method="post">
+    <h1>Details for {{ container }} and {{ file }}!</h1>
+    {% for detail in details %}
+     <p>{{detail}}</p>
+ {% endfor %}
+    <br>
+  {% for data in latest %}
+     <p>{{data}}</p>
+ {% endfor %}
+    <br>
+<button type="submit" class = "button"  name="submit_button" value="VALIDATE FILE">VALIDATE FILE</button>
+    <button type="submit" class = "button"  name="submit_button" value="HOME">HOME</button><br><br>
+    <div class="plot-container">
+        <div class="plot">
+            {{ plot|safe }}
+        </div>
+        <div class="plot">
+            {{ plot2|safe }}
+        </div>
+    </div>
+    <br>
+    <a href="/">Back to Home</a>
+      </form>
+</body>
+</html>
