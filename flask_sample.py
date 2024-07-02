@@ -101,7 +101,7 @@ def project_and_files():
     for container in containers:
         df1 = df.loc[df['CONTAINER'] == container, ['PREFIX']]
         files = df1['PREFIX'].sort_values().unique().tolist()
-        project_files[containers] = files
+        project_files[container] = files
     containers.append('')
     return containers, project_files
 
