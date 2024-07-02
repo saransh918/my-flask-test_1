@@ -14,53 +14,49 @@ import matplotlib.pyplot as plt
 import io
 import base64
 import re
-
 pd.options.mode.chained_assignment = None
 import operator
 import threading
 from dateutil.relativedelta import relativedelta
 from azure.storage.blob import BlobServiceClient
-
-# from azure.core.exceptions import ResourceNotFoundError
-# import logging
+#from azure.core.exceptions import ResourceNotFoundError
+#import logging
 
 app = Flask(__name__)
-app.secret_key = 'testing'
+#app.secret_key = 'testing'
+initialized = False
 
 AZURE_ADLS_ACCOUNT_URL = os.getenv('AZURE_ADLS_ACCOUNT_URL')
 
 
 def initialize_app():
-    try:
-        data_lake_service_client = get_data_lake_service_client()
-        container_name = 'metadata'
-        folder1_path = 'METADATA'
-        folder2_path = 'ERROR_FILES'
-        file_system_client = data_lake_service_client.get_file_system_client('metadata')
-        create_file_system_if_not_exists(file_system_client)
-        directory_client1 = file_system_client.get_directory_client(folder1_path)
-        create_directory_if_not_exists(directory_client1)
-        directory_client2 = file_system_client.get_directory_client(folder2_path)
-        create_directory_if_not_exists(directory_client2)
-        return "Initialization activities completed successfully"
-    except Exception as e:
-        # logging.error(f"Error during initialization: {str(e)}")
-        return "Error during initialization: {str(e)}"
-
-
-@app.before_first_request
-def run_once():
-    initialize_app()
-
-
+    global initialized
+    if not initialized:
+        try:
+            data_lake_service_client = get_data_lake_service_client()
+            container_name = 'metadata'
+            folder1_path = 'METADATA'
+            folder2_path = 'ERROR_FILES'
+            file_system_client = data_lake_service_client.get_file_system_client('metadata')
+            create_file_system_if_not_exists(file_system_client)
+            directory_client1 = file_system_client.get_directory_client(folder1_path)
+            create_directory_if_not_exists(directory_client1)
+            directory_client2 = file_system_client.get_directory_client(folder2_path)
+            create_directory_if_not_exists(directory_client2)
+            initialized = True
+            return "Initialization activities completed successfully"
+        except Exception as e:
+            #logging.error(f"Error during initialization: {str(e)}")
+            return "Error during initialization: {str(e)}"
+        
+        
 def get_data_lake_service_client():
     account_url = os.getenv('AZURE_ADLS_ACCOUNT_URL')
     if not account_url:
         raise ValueError("AZURE_ADLS_ACCOUNT_URL environment variable is not set")
     credential = DefaultAzureCredential()
     return DataLakeServiceClient(account_url=account_url, credential=credential)
-
-
+    
 def list_containers():
     try:
         data_lake_service_client = get_data_lake_service_client()
@@ -71,10 +67,9 @@ def list_containers():
         logging.error(f"Error listing containers: {str(e)}")
         return []
 
-
 def read_adls_file(container_name, file_path, num_rows=None):
     try:
-        # credential = DefaultAzureCredential()
+        #credential = DefaultAzureCredential()
         data_lake_service_client = get_data_lake_service_client()
         file_system_client = data_lake_service_client.get_file_system_client(container_name)
         file_client = file_system_client.get_file_client(file_path)
@@ -92,7 +87,6 @@ def read_adls_file(container_name, file_path, num_rows=None):
         return limited_content
     except Exception as e:
         return f"Error accessing ADLS Gen2: {str(e)}"
-
 
 # This method will return list of projects and a dictionary with project as key and files under the project as values.
 def project_and_files():
@@ -115,6 +109,8 @@ def project_and_files():
 # Renders Home page
 @app.route('/', methods=['GET', 'POST'])
 def Home():
+    if not initialized:
+        initialize_app()
     return render_template('Home.html')
 
 
@@ -166,8 +162,7 @@ def f_pre_rules():
 def f_upd_met():
     containers, project_files = project_and_files()
     frequencies = ['', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Bi-Weekly', 'Bi-Monthly', 'Half-Yearly', 'Yearly']
-    return render_template('UpdateFile.html', categories=containers, subcategories=project_files,
-                           frequencies=frequencies)
+    return render_template('UpdateFile.html', categories=containers, subcategories=project_files, frequencies=frequencies)
 
 
 def determine_delimiter(content):
@@ -227,11 +222,11 @@ def save_header(file, out):
     except ResourceNotFoundError:
         # If the file does not exist, create a new DataFrame
         df = pd.DataFrame()
-
+        
     new_row_df = pd.DataFrame([out.split('|')], columns=df.columns if not df.empty else None)
     # Append the new row to the existing DataFrame
     df = pd.concat([df, new_row_df], ignore_index=True)
-
+    
     # Save the updated DataFrame back to the file in ADLS Gen2
     csv_data = df.to_csv(index=False)
     file_client.upload_data(csv_data, overwrite=True)
@@ -255,8 +250,8 @@ def new_file():
         data = StringIO(metadata)
         df = pd.read_csv(data, delimiter='|')
         container = request.form['container']
-        # container_list = list_containers()
-        # if container not in container_list
+        #container_list = list_containers()
+        #if container not in container_list
         category = request.form['category']
         prefix = request.form['prefix']
         frequency = request.form['frequency']
@@ -330,7 +325,7 @@ def file_details():
         df = pd.read_csv(data, delimiter='|')
         filtered_df = df.loc[
             (df['CONTAINER'] == container) & (df['PREFIX'] == file), ['CONTAINER', 'PREFIX', 'FREQUENCY', 'DIRECTORY',
-                                                                      'DESCRIPTION', 'DATE_FORMAT']]
+                                                                  'DESCRIPTION', 'DATE_FORMAT']]
         freq = filtered_df.iloc[0]['FREQUENCY']
         directory = filtered_df.iloc[0]['DIRECTORY']
         desc = filtered_df.iloc[0]['DESCRIPTION']
@@ -345,9 +340,8 @@ def file_details():
         data_info = StringIO(info)
         df2 = pd.read_csv(data_info, delimiter='|')
         filtered_df2 = df2.loc[
-            (df2['CONTAINER'] == container) & (df2['PREFIX'] == file), ['CONTAINER', 'PREFIX', 'FILE_NAME', 'DATE',
-                                                                        'COUNT',
-                                                                        'STATUS', 'REASON']]
+            (df2['CONTAINER'] == container) & (df2['PREFIX'] == file), ['CONTAINER', 'PREFIX', 'FILE_NAME', 'DATE', 'COUNT',
+                                                                    'STATUS', 'REASON']]
         if filtered_df2.empty:
             latest_str = 'This is a new file.' + '\n' + 'Please validate the file at least once to view last processed details.'
             latest_str = latest_str.split('\n')
@@ -371,8 +365,7 @@ def file_details():
         one_month_df.sort_values('DATE')
         one_month_dedup_df = one_month_df.drop_duplicates(subset=['FILE_NAME'], keep='first')
         data = one_month_dedup_df.groupby(['PREFIX', 'STATUS']).size().unstack(fill_value=0)
-        return render_template('ViewDetails.html', details=detail_str, latest=latest_str, container=container,
-                               file=file)
+        return render_template('ViewDetails.html', details=detail_str, latest=latest_str, container=container, file=file)
 
 
 # This method generates file count vs date graph
@@ -699,7 +692,7 @@ def file_validate():
         df = pd.read_csv(data, sep='|', usecols=['CONTAINER', 'PREFIX', 'HEADER', 'DIRECTORY', 'DELIMITER', 'TYPE'])
         new_df = df.loc[
             (df['CONTAINER'] == container) & (df['PREFIX'] == file), ['CONTAINER', 'HEADER', 'DIRECTORY', 'DELIMITER',
-                                                                      'TYPE']]
+                                                                  'TYPE']]
         container = new_df.iloc[0]['CONTAINER']
         heading = new_df.iloc[0]['HEADER']
         directory = new_df.iloc[0]['DIRECTORY']
@@ -837,7 +830,7 @@ def update_file():
             message = "Metadata for file {0} in container {1} is updated successfully!".format(prefix, container)
             flash(message)
             return redirect(url_for('f_upd_met'))
-
+            
 if __name__ == "__main__":
     app.run()
     app.debug = True
