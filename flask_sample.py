@@ -171,7 +171,7 @@ def determine_delimiter(content):
 
 
 # This method reads sample file and extracts details such as delimiter, extension, etc.
-def read_header(file_path):
+def read_header(container_name, file_path):
     file_name = os.path.basename(file_path)
     directory = os.path.dirname(file_path)
     ext = os.path.splitext(file_name)[1]
@@ -283,7 +283,7 @@ def new_file():
             flash(message)
             return redirect(url_for('f_add_new'))
         else:
-            ext, directory, header, delimiter = read_header(csv_file_path)
+            ext, directory, header, delimiter = read_header(container, csv_file_path)
             extension = ext
             path = directory
             delim = delimiter
@@ -713,7 +713,7 @@ def file_validate():
         df1 = pd.read_csv(data_info, sep='|', usecols=['FILE_NAME', 'DATE', 'STATUS'])
         fil_df = df1.loc[(df1['FILE_NAME'] == file_name) & (df1['STATUS'] == 'VALID'), ['DATE', 'STATUS']]
         if fil_df.empty:
-            ext, directory, header, delimiter, count = read_header(latest_file)
+            ext, directory, header, delimiter, count = read_header(container, latest_file)
             # structure = check_file_structure(latest_file, delimiter)
             reason = ""
             val_dict = {}
