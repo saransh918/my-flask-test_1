@@ -110,13 +110,23 @@ def project_and_files():
 def check_file_exists(container_name, file_path):
     data_lake_service_client = get_data_lake_service_client()
     file_system_client = data_lake_service_client.get_file_system_client(container_name)
-    file_client = file_system_client.get_file_client(file_path)
 
     try:
-        file_client.get_file_properties()
-        return True
+        # Check if the path is a file
+        file_client = file_system_client.get_file_client(file_path)
+        file_properties = file_client.get_file_properties()
+        return {'file': 'Y', 'dir': 'N'}
     except ResourceNotFoundError:
-        return False
+        # If it's not a file, check if it's a directory
+        try:
+            directory_client = file_system_client.get_directory_client(file_path)
+            paths = list(directory_client.get_paths())
+            if paths:
+                return {'file': 'N', 'dir': 'Y'}
+        except ResourceNotFoundError:
+            pass
+    
+    return {'file': 'N', 'dir': 'N'}
 
 # Renders Home page
 @app.route('/', methods=['GET', 'POST'])
@@ -268,8 +278,13 @@ def new_file():
         prefix = request.form['prefix']
         frequency = request.form['frequency']
         csv_file_path = request.form['csv_file_path']
-        if not check_file_exists(container, csv_file_path):
-            message = "File {} within container {} does not exist. Please enter complete path to the file including file name".format(csv_file_path, container)
+        check_result = check_file_exists(container_name, path)
+        if check_result['dir'] == 'Y':
+            message = "You have provided only the directory {}. Please enter complete path to the file including sample file name".format(csv_file_path)
+            flash(message)
+            return redirect(url_for('f_add_new'))
+        elif check_result['dir'] == 'N' and check_result['file'] == 'N':
+            message = "Path {} does not exist in the container {}".format(csv_file_path, container)
             flash(message)
             return redirect(url_for('f_add_new'))
         date_format = request.form['date_format']
