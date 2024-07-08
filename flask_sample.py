@@ -105,6 +105,16 @@ def project_and_files():
     containers.append('')
     return containers, project_files
 
+def check_file_exists(container_name, file_path):
+    data_lake_service_client = get_data_lake_service_client()
+    file_system_client = data_lake_service_client.get_file_system_client(container_name)
+    file_client = file_system_client.get_file_client(file_path)
+
+    try:
+        file_client.get_file_properties()
+        return True
+    except ResourceNotFoundError:
+        return False
 
 # Renders Home page
 @app.route('/', methods=['GET', 'POST'])
@@ -256,6 +266,10 @@ def new_file():
         prefix = request.form['prefix']
         frequency = request.form['frequency']
         csv_file_path = request.form['csv_file_path']
+        if not check_file_exists(container, csv_file_path):
+            message = "File {} within container {} does not exist. Please enter complete path to the file including file name".format(csv_file_path, container)
+            flash(message)
+            return redirect(url_for('f_add_new'))
         date_format = request.form['date_format']
         auto = 'AutomationCheck' in request.form
         notification = 'NotificationCheck' in request.form
@@ -292,7 +306,9 @@ def new_file():
                        date_format, automate, notify, emails, created, updated]
             df.loc[len(df)] = new_row
             updated_content = df.to_csv(index=False, sep='|')
-            upload_file = file_system_client.get_file_client(file_path)
+            data_lake_service_client = get_data_lake_service_client()
+            file_system_client = data_lake_service_client.get_file_system_client('metadata')
+            upload_file = file_system_client.get_file_client(met_file)
             upload_file.upload_data(updated_content, overwrite=True)
             message = "File {} for container {} is saved successfully".format(prefix, container)
             flash(message)
@@ -825,6 +841,8 @@ def update_file():
                 df.loc[filter_condition, column] = value
             # df.to_csv('metadata.csv', index=False, sep='|')
             updated_content = df.to_csv(index=False, sep='|')
+            data_lake_service_client = get_data_lake_service_client()
+            file_system_client = data_lake_service_client.get_file_system_client('metadata')
             upload_file = file_system_client.get_file_client(met_file)
             upload_file.upload_data(updated_content, overwrite=True)
             message = "Metadata for file {0} in container {1} is updated successfully!".format(prefix, container)
