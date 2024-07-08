@@ -278,7 +278,7 @@ def new_file():
         prefix = request.form['prefix']
         frequency = request.form['frequency']
         csv_file_path = request.form['csv_file_path']
-        check_result = check_file_exists(container_name, path)
+        check_result = check_file_exists(container, csv_file_path)
         if check_result['dir'] == 'Y':
             message = "You have provided only the directory {}. Please enter complete path to the file including sample file name".format(csv_file_path)
             flash(message)
