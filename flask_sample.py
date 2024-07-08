@@ -28,7 +28,7 @@ app = Flask(__name__)
 initialized = False
 
 AZURE_ADLS_ACCOUNT_URL = os.getenv('AZURE_ADLS_ACCOUNT_URL')
-
+app.secret_key = os.getenv('SECRET_KEY')
 
 def initialize_app():
     global initialized
