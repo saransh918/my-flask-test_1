@@ -279,6 +279,7 @@ def new_file():
         frequency = request.form['frequency']
         csv_file_path = request.form['csv_file_path']
         check_result = check_file_exists(container, csv_file_path)
+        print(check_result)
         if check_result['dir'] == 'Y':
             message = "You have provided only the directory {}. Please enter complete path to the file including sample file name".format(csv_file_path)
             flash(message)
@@ -287,49 +288,50 @@ def new_file():
             message = "Path {} does not exist in the container {}".format(csv_file_path, container)
             flash(message)
             return redirect(url_for('f_add_new'))
-        date_format = request.form['date_format']
-        auto = 'AutomationCheck' in request.form
-        notification = 'NotificationCheck' in request.form
-        emails = request.form.get('Email', '')
-        desc = request.form['desc']
-        row_exists = df.loc[(df['CONTAINER'] == container) & (df['PREFIX'] == prefix)].shape[0] > 0
-        if auto:
-            automate = 'Y'
         else:
-            automate = 'N'
-        if notification:
-            notify = 'Y'
-        else:
-            notify = 'N'
-        if not container or not category or not prefix or not csv_file_path:
-            message = "container, Category, Prefix and sample file path are necessary to create a new file"
-            flash(message)
-            return redirect(url_for('f_add_new'))
-        elif row_exists:
-            message = "File {} for {} is already present. Please choose a different prefix".format(prefix, container)
-            flash(message)
-            return redirect(url_for('f_add_new'))
-        elif notify == 'Y' and (emails == '' or emails == 'Emails'):
-            message = "If you have opted for notifications, please enter at least one email address"
-            flash(message)
-            return redirect(url_for('f_add_new'))
-        else:
-            ext, directory, header, delimiter = read_header(container, csv_file_path)
-            extension = ext
-            path = directory
-            delim = delimiter
-            head = header
-            new_row = [container, category, extension, prefix, frequency, path, head, delim, desc,
-                       date_format, automate, notify, emails, created, updated]
-            df.loc[len(df)] = new_row
-            updated_content = df.to_csv(index=False, sep='|')
-            data_lake_service_client = get_data_lake_service_client()
-            file_system_client = data_lake_service_client.get_file_system_client('metadata')
-            upload_file = file_system_client.get_file_client(met_file)
-            upload_file.upload_data(updated_content, overwrite=True)
-            message = "File {} for container {} is saved successfully".format(prefix, container)
-            flash(message)
-            return redirect(url_for('f_add_new'))
+            date_format = request.form['date_format']
+            auto = 'AutomationCheck' in request.form
+            notification = 'NotificationCheck' in request.form
+            emails = request.form.get('Email', '')
+            desc = request.form['desc']
+            row_exists = df.loc[(df['CONTAINER'] == container) & (df['PREFIX'] == prefix)].shape[0] > 0
+            if auto:
+                automate = 'Y'
+            else:
+                automate = 'N'
+            if notification:
+                notify = 'Y'
+            else:
+                notify = 'N'
+            if not container or not category or not prefix or not csv_file_path:
+                message = "container, Category, Prefix and sample file path are necessary to create a new file"
+                flash(message)
+                return redirect(url_for('f_add_new'))
+            elif row_exists:
+                message = "File {} for {} is already present. Please choose a different prefix".format(prefix, container)
+                flash(message)
+                return redirect(url_for('f_add_new'))
+            elif notify == 'Y' and (emails == '' or emails == 'Emails'):
+                message = "If you have opted for notifications, please enter at least one email address"
+                flash(message)
+                return redirect(url_for('f_add_new'))
+            else:
+                ext, directory, header, delimiter = read_header(container, csv_file_path)
+                extension = ext
+                path = directory
+                delim = delimiter
+                head = header
+                new_row = [container, category, extension, prefix, frequency, path, head, delim, desc,
+                           date_format, automate, notify, emails, created, updated]
+                df.loc[len(df)] = new_row
+                updated_content = df.to_csv(index=False, sep='|')
+                data_lake_service_client = get_data_lake_service_client()
+                file_system_client = data_lake_service_client.get_file_system_client('metadata')
+                upload_file = file_system_client.get_file_client(met_file)
+                upload_file.upload_data(updated_content, overwrite=True)
+                message = "File {} for container {} is saved successfully".format(prefix, container)
+                flash(message)
+                return redirect(url_for('f_add_new'))
 
 
 # This method gives container details
