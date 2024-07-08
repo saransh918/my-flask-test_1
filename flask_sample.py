@@ -1,6 +1,7 @@
 from io import StringIO
 from azure.identity import DefaultAzureCredential
 from azure.storage.filedatalake import DataLakeServiceClient
+from azure.core.exceptions import ResourceNotFoundError
 import csv
 import os
 import pandas as pd
