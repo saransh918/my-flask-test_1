@@ -105,7 +105,7 @@ def project_and_files():
         files = df1['PREFIX'].sort_values().unique().tolist()
         project_files[container] = files
     containers.append('')
-    return containers, project_files
+    return containers, project_files, files
 
 #def check_file_exists(container_name, file_path):
 def check_path(file_path):
@@ -150,33 +150,33 @@ def action():
 
 @app.route('/f_validate', methods=['GET', 'POST'])
 def f_validate():
-    containers, project_files = project_and_files()
+    containers, project_files, files = project_and_files()
     return render_template('FileValidate.html', categories=containers, subcategories=project_files)
 
 
 @app.route('/f_add_new', methods=['GET', 'POST'])
 def f_add_new():
     frequencies = ['', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Bi-Weekly', 'Bi-Monthly', 'Half-Yearly', 'Yearly']
-    containers, project_files = project_and_files()
+    containers, project_files, files = project_and_files()
     container_list = list_containers()
     return render_template('AddFile.html', containers=container_list, frequencies=frequencies)
 
 
 @app.route('/f_details', methods=['GET', 'POST'])
 def f_details():
-    containers, project_files = project_and_files()
+    containers, project_files, files = project_and_files()
     return render_template('FileDetails.html', categories=containers, subcategories=project_files)  # AddPredefinedRule
 
 
 @app.route('/f_pre_rules', methods=['GET', 'POST'])
 def f_pre_rules():
-    containers, project_files = project_and_files()
-    return render_template('AddRules.html', subcategories=project_files)
+    containers, project_files, files = project_and_files()
+    return render_template('AddRules.html', subcategories=files)
 
 
 @app.route('/f_upd_met', methods=['GET', 'POST'])
 def f_upd_met():
-    containers, project_files = project_and_files()
+    containers, project_files, files = project_and_files()
     frequencies = ['', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Bi-Weekly', 'Bi-Monthly', 'Half-Yearly', 'Yearly']
     return render_template('UpdateFile.html', categories=containers, subcategories=project_files, frequencies=frequencies)
 
