@@ -234,7 +234,8 @@ def save_header(file, out):
         # Try to download the existing file
         download = file_client.download_file()
         existing_data = download.readall().decode('utf-8')
-        df = pd.read_csv(pd.compat.StringIO(existing_data))
+        data_io = StringIO(existing_data)
+        df = pd.read_csv(data_io)
     except ResourceNotFoundError:
         # If the file does not exist, create a new DataFrame
         df = pd.DataFrame()
