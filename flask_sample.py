@@ -235,7 +235,7 @@ def save_header(file, out):
         download = file_client.download_file()
         existing_data = download.readall().decode('utf-8')
         data_io = StringIO(existing_data)
-        df = pd.read_csv(data_io)
+        df = pd.read_csv(data_io, delimiter='|')
     except ResourceNotFoundError:
         # If the file does not exist, create a new DataFrame
         df = pd.DataFrame()
