@@ -237,15 +237,16 @@ def save_header(file, out):
         data_io = StringIO(existing_data)
         df = pd.read_csv(data_io, delimiter='|')
     except ResourceNotFoundError:
+        col_names = ['FILE_NAME', 'RULE', 'COLUMNS', 'OPERATOR', 'VALUES']
         # If the file does not exist, create a new DataFrame
-        df = pd.DataFrame()
+        df = pd.DataFrame(columns=col_names)
         
-    new_row_df = pd.DataFrame([out.split('|')], columns=df.columns if not df.empty else None)
+    new_row_df = pd.DataFrame([out.split('|')], columns=df.columns)
     # Append the new row to the existing DataFrame
     df = pd.concat([df, new_row_df], ignore_index=True)
     
     # Save the updated DataFrame back to the file in ADLS Gen2
-    csv_data = df.to_csv(index=False)
+    csv_data = df.to_csv(sep='|', index=False)
     file_client.upload_data(csv_data, overwrite=True)
     return "File info saved"
 
