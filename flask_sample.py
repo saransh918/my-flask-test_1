@@ -715,7 +715,7 @@ def file_validate():
         container = request.form['category']
         file = request.form['subcategory']
         met_file = "METADATA/metadata.csv"
-        metadata = read_adls_file(container_name, met_file, num_rows=None)
+        metadata = read_adls_file('metadata', met_file, num_rows=None)
         if "Error" in metadata:
             return metadata
         data = StringIO(metadata)
@@ -723,7 +723,7 @@ def file_validate():
         new_df = df.loc[
             (df['CONTAINER'] == container) & (df['PREFIX'] == file), ['CONTAINER', 'HEADER', 'DIRECTORY', 'DELIMITER',
                                                                   'TYPE']]
-        container = new_df.iloc[0]['CONTAINER']
+        #container = new_df.iloc[0]['CONTAINER']
         heading = new_df.iloc[0]['HEADER']
         directory = new_df.iloc[0]['DIRECTORY']
         delim = new_df.iloc[0]['DELIMITER']
