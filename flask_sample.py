@@ -644,7 +644,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
     return "Done"
 
 
-def validate_rule(latest_file, file):
+def validate_rule(container, latest_file, file):
     rule_file = "METADATA/rules.csv"
     rules = read_adls_file('metadata', rule_file, num_rows=None)
     if "Error" in rules:
@@ -690,7 +690,7 @@ def validate_rule(latest_file, file):
                 op = 'primary key'
             elif oprtr == 'date fields':
                 op = 'date fields'
-            data = read_adls_file(container_name, latest_file, num_rows=None)
+            data = read_adls_file(container, latest_file, num_rows=None)
             if "Error" in data:
                 return data
             complete_data = StringIO(data)
@@ -728,8 +728,14 @@ def file_validate():
         directory = new_df.iloc[0]['DIRECTORY']
         delim = new_df.iloc[0]['DELIMITER']
         type = new_df.iloc[0]['TYPE']
-        all_files = glob.glob(os.path.join(directory + '/' + file + '*'))
-        latest_file = sorted(all_files, key=os.path.getmtime)[-1]
+        #all_files = glob.glob(os.path.join(directory + '/' + file + '*'))
+        #latest_file = sorted(all_files, key=os.path.getmtime)[-1]
+        data_lake_service_client = get_data_lake_service_client()
+        file_system_client = data_lake_service_client.get_file_system_client(container)
+        paths = file_system_client.get_paths(path=directory)
+        all_files = [path for path in paths if not path.is_directory]
+        file_dict = max(files, key=lambda x: x.last_modified)
+        latest_file = file_dict['name']
         file_name = os.path.basename(latest_file)
         time_stamp = os.path.getmtime(latest_file)
         dt_object = datetime.datetime.fromtimestamp(time_stamp)
@@ -768,7 +774,7 @@ def file_validate():
             else:
                 status1 = 'VALID'
                 reason += "File structure is correct! "
-                rule_dict = validate_rule(latest_file, file)
+                rule_dict = validate_rule(container, latest_file, file)
                 if len(rule_dict) != 0:
                     if 'no_rules' in rule_dict:
                         status2 = 'VALID'
