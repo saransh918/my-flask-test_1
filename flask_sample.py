@@ -734,7 +734,7 @@ def file_validate():
         file_system_client = data_lake_service_client.get_file_system_client(container)
         paths = file_system_client.get_paths(path=directory)
         all_files = [path for path in paths if not path.is_directory]
-        file_dict = max(files, key=lambda x: x.last_modified)
+        file_dict = max(all_files, key=lambda x: x.last_modified)
         latest_file = file_dict['name']
         file_name = os.path.basename(latest_file)
         time_stamp = os.path.getmtime(latest_file)
