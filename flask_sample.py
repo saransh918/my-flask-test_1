@@ -737,9 +737,9 @@ def file_validate():
         file_dict = max(all_files, key=lambda x: x.last_modified)
         latest_file = file_dict['name']
         file_name = os.path.basename(latest_file)
-        time_stamp = os.path.getmtime(latest_file)
-        dt_object = datetime.datetime.fromtimestamp(time_stamp)
-        time_string = dt_object.strftime("%Y-%m-%d")
+        #time_stamp = os.path.getmtime(latest_file)
+        #dt_object = datetime.datetime.fromtimestamp(time_stamp)
+        #time_string = dt_object.strftime("%Y-%m-%d")
         processed_on = str(datetime.date.today())
         inf_file = "METADATA/information.csv"
         info = read_adls_file('metadata', inf_file, num_rows=None)
