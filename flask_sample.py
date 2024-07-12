@@ -670,9 +670,9 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr, fu
                 save_error(prefix, invalid_rows, full_file_path)
     else:
         for column in column_list:
-            is_all = comparison_operator(chunk[column], int(values))
+            is_all = comparison_operator(chunk[column], float(values))
             if not is_all.all():
-                invalid_rows = chunk[~(comparison_operator(chunk[column], int(values)))]
+                invalid_rows = chunk[~(comparison_operator(chunk[column], float(values)))]
                 error = "Comparison Error : Column '{0}' '{1}' '{2}'".format(column, oprtr, values)
                 invalid_rows.loc[:, 'ERROR'] = error
                 save_error(prefix, invalid_rows, full_file_path)
