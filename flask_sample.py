@@ -30,6 +30,21 @@ initialized = False
 AZURE_ADLS_ACCOUNT_URL = os.getenv('AZURE_ADLS_ACCOUNT_URL')
 app.secret_key = os.getenv('SECRET_KEY')
 
+
+def create_file_system_if_not_exists(file_system_client):
+    try:
+        file_system_client.get_paths()
+    except ResourceNotFoundError:
+        #logging.info(f"Container does not exist. Creating it.")
+        file_system_client.create_file_system()
+
+def create_directory_if_not_exists(directory_client):
+    try:
+        directory_client.get_directory_properties()
+    except ResourceNotFoundError:
+        #logging.info(f"Directory does not exist. Creating it.")
+        directory_client.create_directory()
+
 #One time Run
 def initialize_app():
     global initialized
@@ -66,7 +81,7 @@ def list_containers():
         container_list = [container.name for container in containers]
         return container_list
     except Exception as e:
-        logging.error(f"Error listing containers: {str(e)}")
+        #logging.error(f"Error listing containers: {str(e)}")
         return []
 
 def read_adls_file(container_name, file_path, num_rows=None):
@@ -187,39 +202,58 @@ def determine_delimiter(content):
 
 
 # This method reads sample file and extracts details such as delimiter, extension, etc.
-def read_header(container_name, file_path):
+def read_header(container_name, file_path, rows):
     file_name = os.path.basename(file_path)
     directory = os.path.dirname(file_path)
     ext = os.path.splitext(file_name)[1]
-    content = read_adls_file(container_name, file_path, num_rows=5)
+    content = read_adls_file(container_name, file_path, num_rows=rows)
     delimiter = determine_delimiter(content)
     data = StringIO(content)
     df = pd.read_csv(data, delimiter=delimiter)
+    record_count = len(df)
     header = delimiter.join(df.columns)
-    return ext, directory, header, delimiter
+    return ext, directory, header, delimiter, record_count
 
 
 # This method saves the error records in an error file
-def save_error(file, invalid_rows):
-    current_date = datetime.date.today().strftime('%Y-%m-%d')
-    directory_path = 'ERROR_FILES/' + file
+def save_error(file, invalid_rows, file_path):
+    #current_date = datetime.date.today().strftime('%Y-%m-%d')
+    #directory_path = 'ERROR_FILES/' + file
     data_lake_service_client = get_data_lake_service_client()
     file_system_client = data_lake_service_client.get_file_system_client('metadata')
-    directory_client = file_system_client.get_directory_client(directory_path)
+    #directory_client = file_system_client.get_directory_client(directory_path)
     met_file = "METADATA/metadata.csv"
     metadata = read_adls_file('metadata', met_file, num_rows=None)
     if "Error" in metadata:
         return metadata
     data = StringIO(metadata)
     met = pd.read_csv(data, delimiter='|')
-    hd_df = met.loc[(met['PREFIX'] == file), ['HEADER']]
+    hd_df = met.loc[(met['PREFIX'] == file), ['HEADER','DELIMITER']]
     err_header = hd_df.iloc[0]['HEADER']
     err_header = err_header.split(',') + ['ERROR']
     invalid_rows.columns = err_header
     out = invalid_rows.head(100)
-    file_name = file + '_' + str(current_date) + '.txt'
-    file_client = directory_client.get_file_client(file_name)
-    file_client.upload_data(out, overwrite=True)
+    delimiter = hd_df.iloc[0]['DELIMITER']
+    #file_name = file + '_' + str(current_date) + '.txt'
+    #file_client = directory_client.get_file_client(file_name)
+    file_client = file_system_client.get_file_client(file_path)
+    
+    file_exists = True
+    try:
+        file_client.get_file_properties()
+    except ResourceNotFoundError:
+        file_exists = False
+    if file_exists:
+        download = file_client.download_file()
+        existing_content = download.readall().decode('utf-8')
+        output = io.StringIO()
+        existing_df = pd.read_csv(output, sep=delimiter, index=False)
+        combined_df = pd.concat([existing_df, out], ignore_index=True)
+    else:
+        combined_df = out
+    
+    csv_data = combined_df.to_csv(sep=delimiter, index=False)
+    file_client.upload_data(csv_data, overwrite=True)
     return "File info saved"
 
 
@@ -237,7 +271,10 @@ def save_header(file, out):
         data_io = StringIO(existing_data)
         df = pd.read_csv(data_io, delimiter='|')
     except ResourceNotFoundError:
-        col_names = ['FILE_NAME', 'RULE', 'COLUMNS', 'OPERATOR', 'VALUES']
+        if file == 'rules.csv':
+            col_names = ['FILE_NAME', 'RULE', 'COLUMNS', 'OPERATOR', 'VALUES']
+        elif file == 'information.csv':
+            col_names = ['CONTAINER', 'PREFIX', 'FILE_NAME', 'DATE', 'COUNT', 'STATUS', 'REASON']
         # If the file does not exist, create a new DataFrame
         df = pd.DataFrame(columns=col_names)
         
@@ -311,7 +348,7 @@ def new_file():
             flash(message)
             return redirect(url_for('f_add_new'))
         else:
-            ext, directory, header, delimiter = read_header(container, csv_file_path)
+            ext, directory, header, delimiter, record_count = read_header(container, csv_file_path, 5)
             extension = ext
             path = directory
             delim = delimiter
@@ -551,7 +588,7 @@ def rules():
         return redirect(url_for('f_pre_rules'))
 
 
-def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
+def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr, full_file_path):
     column_list = columns.split(',')
     met_file = "METADATA/metadata.csv"
     metadata = read_adls_file('metadata', met_file, num_rows=None)
@@ -572,7 +609,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
                     invalid_rows = chunk[(chunk[column] < int(low)) | (chunk[column] > int(high))]
                     error = "Range Error: Column '{0}' between {1} and {2}".format(column, low, high)
                     invalid_rows.loc[:, 'ERROR'] = error
-                    save_error(prefix, invalid_rows)
+                    save_error(prefix, invalid_rows, full_file_path)
         elif isinstance(low, datetime.date) and isinstance(high, datetime.date):
             for column in column_list:
                 if chunk[column].min() >= low and chunk[column].max() <= high:
@@ -581,7 +618,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
                     invalid_rows = chunk[(chunk[column].min() < low) | (chunk[column].max() > high)]
                     error = "Range Error: Column '{0}' between {1} and {2}".format(column, low, high)
                     invalid_rows.loc[:, 'ERROR'] = error
-                    save_error(prefix, invalid_rows)
+                    save_error(prefix, invalid_rows, full_file_path)
     elif comparison_operator == 'contains':
         for column in column_list:
             if chunk[column].str.contains(values).all():
@@ -590,7 +627,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
                 invalid_rows = chunk[~(chunk[column].str.contains(values).all())]
                 error = "String Error: Column '{0}' Does not contain '{1}'".format(column, values)
                 invalid_rows.loc[:, 'ERROR'] = error
-                save_error(prefix, invalid_rows)
+                save_error(prefix, invalid_rows, full_file_path)
     elif comparison_operator == 'numeric fields':
         for column in column_list:
             df_num = chunk.replace('', np.nan).dropna()
@@ -600,7 +637,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
             else:
                 error = "Number Error: Column '{0}' contains non numeric value".format(column)
                 invalid_rows.loc[:, 'ERROR'] = error
-                save_error(prefix, invalid_rows)
+                save_error(prefix, invalid_rows, full_file_path)
     elif comparison_operator == 'date fields':
         for column in column_list:
             df_dt = chunk.dropna(subset=[column])
@@ -610,7 +647,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
             else:
                 error = "Date Error: Column '{0}' contains Non-Date values".format(column)
                 invalid_rows.loc[:, 'ERROR'] = error
-                save_error(prefix, invalid_rows)
+                save_error(prefix, invalid_rows, full_file_path)
     elif comparison_operator == 'not null fields':
         for column in column_list:
             df_null = chunk[column].isnull()
@@ -620,7 +657,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
             else:
                 error = "Null Error: Column '{0}' has null values".format(column)
                 invalid_rows.loc[:, 'ERROR'] = error
-                save_error(prefix, invalid_rows)
+                save_error(prefix, invalid_rows, full_file_path)
     elif comparison_operator == 'primary key':
         for column in column_list:
             df_key = chunk[column].duplicated()
@@ -630,7 +667,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
             else:
                 error = "Key Error: Column '{0}' has duplicate values".format(column)
                 invalid_rows.loc[:, 'ERROR'] = error
-                save_error(prefix, invalid_rows)
+                save_error(prefix, invalid_rows, full_file_path)
     else:
         for column in column_list:
             is_all = comparison_operator(chunk[column], int(values))
@@ -638,13 +675,13 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr):
                 invalid_rows = chunk[~(comparison_operator(chunk[column], int(values)))]
                 error = "Comparison Error : Column '{0}' '{1}' '{2}'".format(column, oprtr, values)
                 invalid_rows.loc[:, 'ERROR'] = error
-                save_error(prefix, invalid_rows)
+                save_error(prefix, invalid_rows, full_file_path)
             else:
                 pass
     return "Done"
 
 
-def validate_rule(container, latest_file, file):
+def validate_rule(container, latest_file, file, delimiter):
     rule_file = "METADATA/rules.csv"
     rules = read_adls_file('metadata', rule_file, num_rows=None)
     if "Error" in rules:
@@ -664,10 +701,24 @@ def validate_rule(container, latest_file, file):
         err_file_dir = 'ERROR_FILES/' + file + '/'
         current_date = datetime.date.today().strftime('%Y-%m-%d')
         file_name = file + '_' + str(current_date) + '.txt'
-        matched_file = glob.glob(os.path.join(err_file_dir, file_name))
-        if matched_file:
-            if os.path.exists(matched_file[0]):
-                os.remove(matched_file[0])
+        full_file_path = os.path.join(err_file_dir, file_name)
+        data_lake_service_client = get_data_lake_service_client()
+        file_system_client = data_lake_service_client.get_file_system_client('metadata')
+        directory_client1 = file_system_client.get_directory_client(err_file_dir)
+        create_directory_if_not_exists(directory_client1)
+        paths = file_system_client.get_paths(path=err_file_dir)
+        file_found = False
+        for path in paths:
+            if path.name == full_file_path:
+                file_found = True
+                break
+        if file_found:
+            file_client = file_system_client.get_file_client(full_file_path)
+            file_client.delete_file()
+        #matched_file = glob.glob(os.path.join(err_file_dir, file_name))
+        #if matched_file:
+        #    if os.path.exists(matched_file[0]):
+        #        os.remove(matched_file[0])
         for i in range(len(df2)):
             columns = df2.iloc[i]['COLUMNS']
             oprtr = df2.iloc[i]['OPERATOR']
@@ -694,12 +745,17 @@ def validate_rule(container, latest_file, file):
             if "Error" in data:
                 return data
             complete_data = StringIO(data)
-            for chunk in pd.read_csv(complete_data, chunksize=chunk_size, na_values=['""', '']):
-                thread = threading.Thread(target=process_chunk, args=(chunk, file, columns, op, values, oprtr))
+            for chunk in pd.read_csv(complete_data, delimiter=delimiter, chunksize=chunk_size, na_values=['""', '']):
+                thread = threading.Thread(target=process_chunk, args=(chunk, file, columns, op, values, oprtr, full_file_path))
                 thread.start()
                 thread.join()
-        matched_file = glob.glob(os.path.join(err_file_dir, file_name))
-        if not matched_file:
+        file_found = False
+        for path in paths:
+            if path.name == full_file_path:
+                file_found = True
+                break
+        if not file_found:
+        #    matched_file = glob.glob(os.path.join(err_file_dir, file_name))
             return dict
         else:
             dict['Error File'] = matched_file
@@ -749,7 +805,7 @@ def file_validate():
         df1 = pd.read_csv(data_info, sep='|', usecols=['FILE_NAME', 'DATE', 'STATUS'])
         fil_df = df1.loc[(df1['FILE_NAME'] == file_name) & (df1['STATUS'] == 'VALID'), ['DATE', 'STATUS']]
         if fil_df.empty:
-            ext, directory, header, delimiter, count = read_header(container, latest_file)
+            ext, directory, header, delimiter, count = read_header(container, latest_file, None)
             # structure = check_file_structure(latest_file, delimiter)
             reason = ""
             val_dict = {}
@@ -774,7 +830,7 @@ def file_validate():
             else:
                 status1 = 'VALID'
                 reason += "File structure is correct! "
-                rule_dict = validate_rule(container, latest_file, file)
+                rule_dict = validate_rule(container, latest_file, file, delimiter)
                 if len(rule_dict) != 0:
                     if 'no_rules' in rule_dict:
                         status2 = 'VALID'
