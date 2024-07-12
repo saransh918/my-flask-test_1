@@ -848,7 +848,7 @@ def file_validate():
                 status = "VALID"
             else:
                 status = "INVALID"
-            entry = container + '|' + file + '|' + file_name + '|' + processed_on + '|' + count + '|' + status + '|' + reason
+            entry = container + '|' + file + '|' + file_name + '|' + processed_on + '|' + str(count) + '|' + status + '|' + reason
             save_header('information.csv', entry)
             if status == "INVALID":
                 message = "File is Invalid because {}".format(reason)
