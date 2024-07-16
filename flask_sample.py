@@ -750,6 +750,7 @@ def validate_rule(container, latest_file, file, delimiter):
                 thread.start()
                 thread.join()
         file_found = False
+        paths = file_system_client.get_paths(path=err_file_dir)
         for path in paths:
             if path.name == full_file_path:
                 file_found = True
