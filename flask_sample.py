@@ -246,8 +246,8 @@ def save_error(file, invalid_rows, file_path):
     if file_exists:
         download = file_client.download_file()
         existing_content = download.readall().decode('utf-8')
-        output = io.StringIO()
-        existing_df = pd.read_csv(output, sep=delimiter, index=False)
+        output = io.StringIO(existing_content)
+        existing_df = pd.read_csv(output, sep=delimiter)
         combined_df = pd.concat([existing_df, out], ignore_index=True)
     else:
         combined_df = out
@@ -758,7 +758,7 @@ def validate_rule(container, latest_file, file, delimiter):
         #    matched_file = glob.glob(os.path.join(err_file_dir, file_name))
             return dict
         else:
-            dict['Error File'] = matched_file
+            dict['Error File'] = full_file_path
             return dict
 
 
