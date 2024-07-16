@@ -839,8 +839,8 @@ def file_validate():
                     else:
                         status2 = 'INVALID'
                         error_file = rule_dict['Error File']
-                        error_file_name = str(error_file[0])
-                        error_file_name = error_file_name.replace("\\", "/")
+                        #error_file_name = str(error_file[0])
+                        #error_file_name = error_file_name.replace("\\", "/")
                         reason += 'File has errors, check error file: ' + str(error_file_name)
                 else:
                     status2 = 'VALID'
