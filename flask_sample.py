@@ -15,16 +15,20 @@ import matplotlib.pyplot as plt
 import io
 import base64
 import re
+
 pd.options.mode.chained_assignment = None
 import operator
 import threading
 from dateutil.relativedelta import relativedelta
 from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceNotFoundError
-#import logging
+from pyspark.sql import SparkSession
+from functools import partial
+
+# import logging
 
 app = Flask(__name__)
-#app.secret_key = 'testing'
+# app.secret_key = 'testing'
 initialized = False
 
 AZURE_ADLS_ACCOUNT_URL = os.getenv('AZURE_ADLS_ACCOUNT_URL')
@@ -35,17 +39,19 @@ def create_file_system_if_not_exists(file_system_client):
     try:
         file_system_client.get_paths()
     except ResourceNotFoundError:
-        #logging.info(f"Container does not exist. Creating it.")
+        # logging.info(f"Container does not exist. Creating it.")
         file_system_client.create_file_system()
+
 
 def create_directory_if_not_exists(directory_client):
     try:
         directory_client.get_directory_properties()
     except ResourceNotFoundError:
-        #logging.info(f"Directory does not exist. Creating it.")
+        # logging.info(f"Directory does not exist. Creating it.")
         directory_client.create_directory()
 
-#One time Run
+
+# One time Run
 def initialize_app():
     global initialized
     if not initialized:
@@ -63,17 +69,18 @@ def initialize_app():
             initialized = True
             return "Initialization activities completed successfully"
         except Exception as e:
-            #logging.error(f"Error during initialization: {str(e)}")
+            # logging.error(f"Error during initialization: {str(e)}")
             return "Error during initialization: {str(e)}"
-        
-        
+
+
 def get_data_lake_service_client():
     account_url = os.getenv('AZURE_ADLS_ACCOUNT_URL')
     if not account_url:
         raise ValueError("AZURE_ADLS_ACCOUNT_URL environment variable is not set")
     credential = DefaultAzureCredential()
     return DataLakeServiceClient(account_url=account_url, credential=credential)
-    
+
+
 def list_containers():
     try:
         data_lake_service_client = get_data_lake_service_client()
@@ -81,12 +88,13 @@ def list_containers():
         container_list = [container.name for container in containers]
         return container_list
     except Exception as e:
-        #logging.error(f"Error listing containers: {str(e)}")
+        # logging.error(f"Error listing containers: {str(e)}")
         return []
+
 
 def read_adls_file(container_name, file_path, num_rows=None):
     try:
-        #credential = DefaultAzureCredential()
+        # credential = DefaultAzureCredential()
         data_lake_service_client = get_data_lake_service_client()
         file_system_client = data_lake_service_client.get_file_system_client(container_name)
         file_client = file_system_client.get_file_client(file_path)
@@ -105,6 +113,34 @@ def read_adls_file(container_name, file_path, num_rows=None):
     except Exception as e:
         return f"Error accessing ADLS Gen2: {str(e)}"
 
+
+def spark_read_csv_file(container_name, file_path, delim):
+    TENANT_ID = os.getenv('AZURE_TENANT_ID')
+    CLIENT_ID = os.getenv('AZURE_CLIENT_ID')
+    CLIENT_SECRET = os.getenv('AZURE_CLIENT_SECRET')
+    # STORAGE_ACCOUNT_NAME = os.getenv('AZURE_STORAGE_ACCOUNT')
+    STORAGE_ACCOUNT_NAME = 'didqynapsestorage'
+    spark = SparkSession.builder \
+        .appName("flask_sample") \
+        .config("spark.jars.packages", "org.apache.hadoop:hadoop-azure:3.2.0,com.microsoft.azure:azure-storage:8.6.6") \
+        .getOrCreate()
+    # Set the Spark configuration for Azure Data Lake Storage Gen2
+    spark.conf.set(f"fs.azure.account.auth.type.{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net", "OAuth")
+    spark.conf.set(f"fs.azure.account.oauth.provider.type.{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net",
+                   "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
+    spark.conf.set(f"fs.azure.account.oauth2.client.id.{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net", CLIENT_ID)
+    spark.conf.set(f"fs.azure.account.oauth2.client.secret.{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net", CLIENT_SECRET)
+    spark.conf.set(f"fs.azure.account.oauth2.client.endpoint.{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net",
+                   f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/token")
+
+    # Define the abfss path to your file in ADLS Gen2
+    file = f"abfss://{container_name}@{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net/{file_path}"
+    print(file)
+    df = spark.read.option("delimiter", delim).csv(file, header=True, inferSchema=True)
+    count = df.count()
+    return spark, df, count
+
+
 # This method will return list of projects and a dictionary with project as key and files under the project as values.
 def project_and_files():
     project_files = {}
@@ -122,11 +158,13 @@ def project_and_files():
     containers.append('')
     return containers, project_files, files
 
-#def check_file_exists(container_name, file_path):
+
+# def check_file_exists(container_name, file_path):
 def check_path(file_path):
     pattern = r"^.+/.+\..+$"
     return bool(re.match(pattern, file_path))
-    
+
+
 def check_file_exists(container_name, file_path):
     data_lake_service_client = get_data_lake_service_client()
     file_system_client = data_lake_service_client.get_file_system_client(container_name)
@@ -136,6 +174,7 @@ def check_file_exists(container_name, file_path):
         return True
     except ResourceNotFoundError:
         return False
+
 
 # Renders Home page
 @app.route('/', methods=['GET', 'POST'])
@@ -193,7 +232,8 @@ def f_pre_rules():
 def f_upd_met():
     containers, project_files, files = project_and_files()
     frequencies = ['', 'Daily', 'Weekly', 'Monthly', 'Quarterly', 'Bi-Weekly', 'Bi-Monthly', 'Half-Yearly', 'Yearly']
-    return render_template('UpdateFile.html', categories=containers, subcategories=project_files, frequencies=frequencies)
+    return render_template('UpdateFile.html', categories=containers, subcategories=project_files,
+                           frequencies=frequencies)
 
 
 def determine_delimiter(content):
@@ -210,34 +250,34 @@ def read_header(container_name, file_path, rows):
     delimiter = determine_delimiter(content)
     data = StringIO(content)
     df = pd.read_csv(data, delimiter=delimiter)
-    record_count = len(df)
+    # record_count = len(df)
     header = delimiter.join(df.columns)
-    return ext, directory, header, delimiter, record_count
+    return ext, directory, header, delimiter
 
 
 # This method saves the error records in an error file
 def save_error(file, invalid_rows, file_path):
-    #current_date = datetime.date.today().strftime('%Y-%m-%d')
-    #directory_path = 'ERROR_FILES/' + file
+    # current_date = datetime.date.today().strftime('%Y-%m-%d')
+    # directory_path = 'ERROR_FILES/' + file
     data_lake_service_client = get_data_lake_service_client()
     file_system_client = data_lake_service_client.get_file_system_client('metadata')
-    #directory_client = file_system_client.get_directory_client(directory_path)
+    # directory_client = file_system_client.get_directory_client(directory_path)
     met_file = "METADATA/metadata.csv"
     metadata = read_adls_file('metadata', met_file, num_rows=None)
     if "Error" in metadata:
         return metadata
     data = StringIO(metadata)
     met = pd.read_csv(data, delimiter='|')
-    hd_df = met.loc[(met['PREFIX'] == file), ['HEADER','DELIMITER']]
+    hd_df = met.loc[(met['PREFIX'] == file), ['HEADER', 'DELIMITER']]
     err_header = hd_df.iloc[0]['HEADER']
     err_header = err_header.split(',') + ['ERROR']
     invalid_rows.columns = err_header
     out = invalid_rows.head(100)
     delimiter = hd_df.iloc[0]['DELIMITER']
-    #file_name = file + '_' + str(current_date) + '.txt'
-    #file_client = directory_client.get_file_client(file_name)
+    # file_name = file + '_' + str(current_date) + '.txt'
+    # file_client = directory_client.get_file_client(file_name)
     file_client = file_system_client.get_file_client(file_path)
-    
+
     file_exists = True
     try:
         file_client.get_file_properties()
@@ -251,7 +291,7 @@ def save_error(file, invalid_rows, file_path):
         combined_df = pd.concat([existing_df, out], ignore_index=True)
     else:
         combined_df = out
-    
+
     csv_data = combined_df.to_csv(sep=delimiter, index=False)
     file_client.upload_data(csv_data, overwrite=True)
     return "File info saved"
@@ -277,11 +317,11 @@ def save_header(file, out):
             col_names = ['CONTAINER', 'PREFIX', 'FILE_NAME', 'DATE', 'COUNT', 'STATUS', 'REASON']
         # If the file does not exist, create a new DataFrame
         df = pd.DataFrame(columns=col_names)
-        
+
     new_row_df = pd.DataFrame([out.split('|')], columns=df.columns)
     # Append the new row to the existing DataFrame
     df = pd.concat([df, new_row_df], ignore_index=True)
-    
+
     # Save the updated DataFrame back to the file in ADLS Gen2
     csv_data = df.to_csv(sep='|', index=False)
     file_client.upload_data(csv_data, overwrite=True)
@@ -305,8 +345,8 @@ def new_file():
         data = StringIO(metadata)
         df = pd.read_csv(data, delimiter='|')
         container = request.form['container']
-        #container_list = list_containers()
-        #if container not in container_list
+        # container_list = list_containers()
+        # if container not in container_list
         category = request.form['category']
         prefix = request.form['prefix']
         frequency = request.form['frequency']
@@ -348,7 +388,7 @@ def new_file():
             flash(message)
             return redirect(url_for('f_add_new'))
         else:
-            ext, directory, header, delimiter, record_count = read_header(container, csv_file_path, 5)
+            ext, directory, header, delimiter = read_header(container, csv_file_path, 5)
             extension = ext
             path = directory
             delim = delimiter
@@ -392,7 +432,7 @@ def file_details():
         df = pd.read_csv(data, delimiter='|')
         filtered_df = df.loc[
             (df['CONTAINER'] == container) & (df['PREFIX'] == file), ['CONTAINER', 'PREFIX', 'FREQUENCY', 'DIRECTORY',
-                                                                  'DESCRIPTION', 'DATE_FORMAT']]
+                                                                      'DESCRIPTION', 'DATE_FORMAT']]
         freq = filtered_df.iloc[0]['FREQUENCY']
         directory = filtered_df.iloc[0]['DIRECTORY']
         desc = filtered_df.iloc[0]['DESCRIPTION']
@@ -407,8 +447,9 @@ def file_details():
         data_info = StringIO(info)
         df2 = pd.read_csv(data_info, delimiter='|')
         filtered_df2 = df2.loc[
-            (df2['CONTAINER'] == container) & (df2['PREFIX'] == file), ['CONTAINER', 'PREFIX', 'FILE_NAME', 'DATE', 'COUNT',
-                                                                    'STATUS', 'REASON']]
+            (df2['CONTAINER'] == container) & (df2['PREFIX'] == file), ['CONTAINER', 'PREFIX', 'FILE_NAME', 'DATE',
+                                                                        'COUNT',
+                                                                        'STATUS', 'REASON']]
         if filtered_df2.empty:
             latest_str = 'This is a new file.' + '\n' + 'Please validate the file at least once to view last processed details.'
             latest_str = latest_str.split('\n')
@@ -432,7 +473,8 @@ def file_details():
         one_month_df.sort_values('DATE')
         one_month_dedup_df = one_month_df.drop_duplicates(subset=['FILE_NAME'], keep='first')
         data = one_month_dedup_df.groupby(['PREFIX', 'STATUS']).size().unstack(fill_value=0)
-        return render_template('ViewDetails.html', details=detail_str, latest=latest_str, container=container, file=file)
+        return render_template('ViewDetails.html', details=detail_str, latest=latest_str, container=container,
+                               file=file)
 
 
 # This method generates file count vs date graph
@@ -447,7 +489,7 @@ def count_vs_date(container, file):
     filtered_df = df.loc[(df['CONTAINER'] == container) &
                          (df['PREFIX'] == file) &
                          (df['STATUS'] == 'VALID'),
-                         ['CONTAINER', 'PREFIX', 'DATE', 'COUNT', 'STATUS']]
+    ['CONTAINER', 'PREFIX', 'DATE', 'COUNT', 'STATUS']]
     df_sorted = filtered_df.sort_values('DATE', ascending=False).head(6)
     df_desc = df_sorted.sort_values('DATE')
     fig, ax = plt.subplots(figsize=(4, 4))
@@ -588,8 +630,10 @@ def rules():
         return redirect(url_for('f_pre_rules'))
 
 
-def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr, full_file_path):
+def process_chunk(partition, prefix, columns, comparison_operator, values, oprtr, full_file_path, column_names):
     column_list = columns.split(',')
+    print(column_names)
+    chunk = pd.DataFrame(list(partition), columns=column_names)
     met_file = "METADATA/metadata.csv"
     metadata = read_adls_file('metadata', met_file, num_rows=None)
     if "Error" in metadata:
@@ -599,6 +643,7 @@ def process_chunk(chunk, prefix, columns, comparison_operator, values, oprtr, fu
     # dt_df = met.loc[(met['PREFIX'] == prefix), ['DATE_FORMAT']]
     dt_df = met[['DATE_FORMAT']][met['PREFIX'] == prefix]
     dt_frmt = dt_df.iloc[0]['DATE_FORMAT']
+    print(prefix)
     if comparison_operator == 'between':
         low, high = values.split(',')
         if low.isnumeric() and high.isnumeric():
@@ -689,15 +734,15 @@ def validate_rule(container, latest_file, file, delimiter):
     rule_info = StringIO(rules)
     df = pd.read_csv(rule_info, sep='|')
     df2 = df.loc[df['FILE_NAME'] == file, ['COLUMNS', 'OPERATOR', 'VALUES']]
+
+    spark, data_df, count = spark_read_csv_file(container, latest_file, delimiter)
+    column_names = data_df.columns
+
     dict = {}
     if df2.empty:
         dict['no_rules'] = 'Y'
-        return dict
+        return dict, count
     else:
-        chunk_size = 50000
-        current_directory = os.getcwd()
-        # didqsynapsefilesystem
-        # err_file_dir = current_directory + '\\Error_files\\' + file + '\\'
         err_file_dir = 'ERROR_FILES/' + file + '/'
         current_date = datetime.date.today().strftime('%Y-%m-%d')
         file_name = file + '_' + str(current_date) + '.txt'
@@ -715,10 +760,6 @@ def validate_rule(container, latest_file, file, delimiter):
         if file_found:
             file_client = file_system_client.get_file_client(full_file_path)
             file_client.delete_file()
-        #matched_file = glob.glob(os.path.join(err_file_dir, file_name))
-        #if matched_file:
-        #    if os.path.exists(matched_file[0]):
-        #        os.remove(matched_file[0])
         for i in range(len(df2)):
             columns = df2.iloc[i]['COLUMNS']
             oprtr = df2.iloc[i]['OPERATOR']
@@ -741,26 +782,24 @@ def validate_rule(container, latest_file, file, delimiter):
                 op = 'primary key'
             elif oprtr == 'date fields':
                 op = 'date fields'
-            data = read_adls_file(container, latest_file, num_rows=None)
-            if "Error" in data:
-                return data
-            complete_data = StringIO(data)
-            for chunk in pd.read_csv(complete_data, delimiter=delimiter, chunksize=chunk_size, na_values=['""', '']):
-                thread = threading.Thread(target=process_chunk, args=(chunk, file, columns, op, values, oprtr, full_file_path))
-                thread.start()
-                thread.join()
+            partial_process_partition = partial(process_chunk, prefix=file, columns=columns, comparison_operator=op,
+                                                values=values, oprtr=oprtr, full_file_path=full_file_path,
+                                                column_names=column_names)
+            data_df.foreachPartition(partial_process_partition)
+            spark.stop()
         file_found = False
         paths = file_system_client.get_paths(path=err_file_dir)
+        print(full_file_path)
         for path in paths:
             if path.name == full_file_path:
                 file_found = True
                 break
         if not file_found:
-        #    matched_file = glob.glob(os.path.join(err_file_dir, file_name))
-            return dict
+            #    matched_file = glob.glob(os.path.join(err_file_dir, file_name))
+            return dict, count
         else:
             dict['Error File'] = full_file_path
-            return dict
+            return dict, count
 
 
 @app.route('/file_validate', methods=['GET', 'POST'])
@@ -779,14 +818,14 @@ def file_validate():
         df = pd.read_csv(data, sep='|', usecols=['CONTAINER', 'PREFIX', 'HEADER', 'DIRECTORY', 'DELIMITER', 'TYPE'])
         new_df = df.loc[
             (df['CONTAINER'] == container) & (df['PREFIX'] == file), ['CONTAINER', 'HEADER', 'DIRECTORY', 'DELIMITER',
-                                                                  'TYPE']]
-        #container = new_df.iloc[0]['CONTAINER']
+                                                                      'TYPE']]
+        # container = new_df.iloc[0]['CONTAINER']
         heading = new_df.iloc[0]['HEADER']
         directory = new_df.iloc[0]['DIRECTORY']
         delim = new_df.iloc[0]['DELIMITER']
         type = new_df.iloc[0]['TYPE']
-        #all_files = glob.glob(os.path.join(directory + '/' + file + '*'))
-        #latest_file = sorted(all_files, key=os.path.getmtime)[-1]
+        # all_files = glob.glob(os.path.join(directory + '/' + file + '*'))
+        # latest_file = sorted(all_files, key=os.path.getmtime)[-1]
         data_lake_service_client = get_data_lake_service_client()
         file_system_client = data_lake_service_client.get_file_system_client(container)
         paths = file_system_client.get_paths(path=directory)
@@ -794,9 +833,9 @@ def file_validate():
         file_dict = max(all_files, key=lambda x: x.last_modified)
         latest_file = file_dict['name']
         file_name = os.path.basename(latest_file)
-        #time_stamp = os.path.getmtime(latest_file)
-        #dt_object = datetime.datetime.fromtimestamp(time_stamp)
-        #time_string = dt_object.strftime("%Y-%m-%d")
+        # time_stamp = os.path.getmtime(latest_file)
+        # dt_object = datetime.datetime.fromtimestamp(time_stamp)
+        # time_string = dt_object.strftime("%Y-%m-%d")
         processed_on = str(datetime.date.today())
         inf_file = "METADATA/information.csv"
         info = read_adls_file('metadata', inf_file, num_rows=None)
@@ -806,7 +845,7 @@ def file_validate():
         df1 = pd.read_csv(data_info, sep='|', usecols=['FILE_NAME', 'DATE', 'STATUS'])
         fil_df = df1.loc[(df1['FILE_NAME'] == file_name) & (df1['STATUS'] == 'VALID'), ['DATE', 'STATUS']]
         if fil_df.empty:
-            ext, directory, header, delimiter, count = read_header(container, latest_file, None)
+            ext, directory, header, delimiter = read_header(container, latest_file, 20)
             # structure = check_file_structure(latest_file, delimiter)
             reason = ""
             val_dict = {}
@@ -828,10 +867,11 @@ def file_validate():
                     reason += "Invalid Delimiter!"
                 # if 'structure' in val_dict:
                 #    reason += "Invalid Structure!"
+                count = 'NA'
             else:
                 status1 = 'VALID'
                 reason += "File structure is correct! "
-                rule_dict = validate_rule(container, latest_file, file, delimiter)
+                rule_dict, count = validate_rule(container, latest_file, file, delimiter)
                 if len(rule_dict) != 0:
                     if 'no_rules' in rule_dict:
                         status2 = 'VALID'
@@ -839,8 +879,8 @@ def file_validate():
                     else:
                         status2 = 'INVALID'
                         error_file = rule_dict['Error File']
-                        #error_file_name = str(error_file[0])
-                        #error_file_name = error_file_name.replace("\\", "/")
+                        # error_file_name = str(error_file[0])
+                        # error_file_name = error_file_name.replace("\\", "/")
                         reason += 'File has errors, check error file: ' + str(error_file)
                 else:
                     status2 = 'VALID'
@@ -849,7 +889,8 @@ def file_validate():
                 status = "VALID"
             else:
                 status = "INVALID"
-            entry = container + '|' + file + '|' + file_name + '|' + processed_on + '|' + str(count) + '|' + status + '|' + reason
+            entry = container + '|' + file + '|' + file_name + '|' + processed_on + '|' + str(
+                count) + '|' + status + '|' + reason
             save_header('information.csv', entry)
             if status == "INVALID":
                 message = "File is Invalid because {}".format(reason)
@@ -925,7 +966,8 @@ def update_file():
             message = "Metadata for file {0} in container {1} is updated successfully!".format(prefix, container)
             flash(message)
             return redirect(url_for('f_upd_met'))
-            
+
+
 if __name__ == "__main__":
     app.run()
     app.debug = True
