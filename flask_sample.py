@@ -104,7 +104,7 @@ def read_adls_file(container_name, file_path, flag):
             content = downloaded_bytes.decode('utf-8')
         else:
             offset = 0
-            length = 1024
+            length = 1024*1024
             download = file_client.download_file(offset=offset, length=length)
             downloaded_bytes = download.readall()
             content = downloaded_bytes.decode('utf-8')
