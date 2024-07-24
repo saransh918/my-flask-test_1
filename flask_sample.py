@@ -98,7 +98,6 @@ def read_adls_file(container_name, file_path, flag):
         data_lake_service_client = get_data_lake_service_client()
         file_system_client = data_lake_service_client.get_file_system_client(container_name)
         file_client = file_system_client.get_file_client(file_path)
-        print(flag)
         if flag == 'Y':
             download = file_client.download_file()
             downloaded_bytes = download.readall()
@@ -135,7 +134,6 @@ def spark_read_csv_file(container_name, file_path, delim):
 
     # Define the abfss path to your file in ADLS Gen2
     file = f"abfss://{container_name}@{STORAGE_ACCOUNT_NAME}.dfs.core.windows.net/{file_path}"
-    print(file)
     df = spark.read.option("delimiter", delim).csv(file, header=True, inferSchema=True)
     count = df.count()
     return spark, df, count
@@ -247,7 +245,8 @@ def read_header(container_name, file_path):
     directory = os.path.dirname(file_path)
     ext = os.path.splitext(file_name)[1]
     content = read_adls_file(container_name, file_path, 'N')
-    delimiter = determine_delimiter(content)
+    limited_content = "\n".join(content.split('\n')[:50])
+    delimiter = determine_delimiter(limited_content)
     data = StringIO(content)
     df = pd.read_csv(data, delimiter=delimiter)
     # record_count = len(df)
@@ -632,7 +631,6 @@ def rules():
 
 def process_chunk(partition, prefix, columns, comparison_operator, values, oprtr, full_file_path, column_names):
     column_list = columns.split(',')
-    print(column_names)
     chunk = pd.DataFrame(list(partition), columns=column_names)
     met_file = "METADATA/metadata.csv"
     metadata = read_adls_file('metadata', met_file, 'Y')
@@ -643,7 +641,6 @@ def process_chunk(partition, prefix, columns, comparison_operator, values, oprtr
     # dt_df = met.loc[(met['PREFIX'] == prefix), ['DATE_FORMAT']]
     dt_df = met[['DATE_FORMAT']][met['PREFIX'] == prefix]
     dt_frmt = dt_df.iloc[0]['DATE_FORMAT']
-    print(prefix)
     if comparison_operator == 'between':
         low, high = values.split(',')
         if low.isnumeric() and high.isnumeric():
@@ -789,7 +786,6 @@ def validate_rule(container, latest_file, file, delimiter):
             spark.stop()
         file_found = False
         paths = file_system_client.get_paths(path=err_file_dir)
-        print(full_file_path)
         for path in paths:
             if path.name == full_file_path:
                 file_found = True
