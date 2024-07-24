@@ -92,24 +92,24 @@ def list_containers():
         return []
 
 
-def read_adls_file(container_name, file_path, num_rows=None):
+def read_adls_file(container_name, file_path, flag):
     try:
         # credential = DefaultAzureCredential()
         data_lake_service_client = get_data_lake_service_client()
         file_system_client = data_lake_service_client.get_file_system_client(container_name)
         file_client = file_system_client.get_file_client(file_path)
-        download = file_client.download_file()
-        downloaded_bytes = download.readall()
-        content = downloaded_bytes.decode('utf-8')
-
-        if num_rows:
-            # Read limited number of rows
-            limited_content = "\n".join(content.split('\n')[:num_rows])
+        print(flag)
+        if flag == 'Y':
+            download = file_client.download_file()
+            downloaded_bytes = download.readall()
+            content = downloaded_bytes.decode('utf-8')
         else:
-            # Read all rows
-            limited_content = content
-
-        return limited_content
+            offset = 0
+            length = 1024
+            download = file_client.download_file(offset=offset, length=length)
+            downloaded_bytes = download.readall()
+            content = downloaded_bytes.decode('utf-8')
+        return content
     except Exception as e:
         return f"Error accessing ADLS Gen2: {str(e)}"
 
@@ -145,7 +145,7 @@ def spark_read_csv_file(container_name, file_path, delim):
 def project_and_files():
     project_files = {}
     met_file = "METADATA/metadata.csv"
-    metadata = read_adls_file('metadata', met_file, num_rows=None)
+    metadata = read_adls_file('metadata', met_file, 'Y')
     if "Error" in metadata:
         return metadata
     data = StringIO(metadata)
@@ -242,11 +242,11 @@ def determine_delimiter(content):
 
 
 # This method reads sample file and extracts details such as delimiter, extension, etc.
-def read_header(container_name, file_path, rows):
+def read_header(container_name, file_path):
     file_name = os.path.basename(file_path)
     directory = os.path.dirname(file_path)
     ext = os.path.splitext(file_name)[1]
-    content = read_adls_file(container_name, file_path, num_rows=rows)
+    content = read_adls_file(container_name, file_path, 'N')
     delimiter = determine_delimiter(content)
     data = StringIO(content)
     df = pd.read_csv(data, delimiter=delimiter)
@@ -263,7 +263,7 @@ def save_error(file, invalid_rows, file_path):
     file_system_client = data_lake_service_client.get_file_system_client('metadata')
     # directory_client = file_system_client.get_directory_client(directory_path)
     met_file = "METADATA/metadata.csv"
-    metadata = read_adls_file('metadata', met_file, num_rows=None)
+    metadata = read_adls_file('metadata', met_file, 'Y')
     if "Error" in metadata:
         return metadata
     data = StringIO(metadata)
@@ -339,7 +339,7 @@ def new_file():
         return redirect(url_for('Home'))
     if response == 'OK':
         met_file = "METADATA/metadata.csv"
-        metadata = read_adls_file('metadata', met_file, num_rows=None)
+        metadata = read_adls_file('metadata', met_file, 'Y')
         if "Error" in metadata:
             return metadata
         data = StringIO(metadata)
@@ -388,7 +388,7 @@ def new_file():
             flash(message)
             return redirect(url_for('f_add_new'))
         else:
-            ext, directory, header, delimiter = read_header(container, csv_file_path, 5)
+            ext, directory, header, delimiter = read_header(container, csv_file_path)
             extension = ext
             path = directory
             delim = delimiter
@@ -425,7 +425,7 @@ def file_details():
         container = request.form['category']
         file = request.form['subcategory']
         met_file = "METADATA/metadata.csv"
-        metadata = read_adls_file('metadata', met_file, num_rows=None)
+        metadata = read_adls_file('metadata', met_file, 'Y')
         if "Error" in metadata:
             return metadata
         data = StringIO(metadata)
@@ -441,7 +441,7 @@ def file_details():
         detail_str = 'This file belongs to the container: ' + container + '.' + '\n' + 'It arrives ' + freq + ' at the following location: ' + directory + '.' + '\n' + desc + '.' + '\n' + 'Date fields have the following format: ' + dt_frmt + '.'
         detail_str = detail_str.split('\n')
         inf_file = "METADATA/information.csv"
-        info = read_adls_file('metadata', inf_file, num_rows=None)
+        info = read_adls_file('metadata', inf_file, 'Y')
         if "Error" in info:
             return info
         data_info = StringIO(info)
@@ -481,7 +481,7 @@ def file_details():
 def count_vs_date(container, file):
     # df = pd.read_csv('information.csv', sep='|')
     inf_file = "METADATA/information.csv"
-    info = read_adls_file('metadata', inf_file, num_rows=None)
+    info = read_adls_file('metadata', inf_file, 'Y')
     if "Error" in info:
         return info
     data_info = StringIO(info)
@@ -545,7 +545,7 @@ def rules():
     if response == 'OK':
         file = request.form['subcategory']
         rule_file = "METADATA/rules.csv"
-        rules = read_adls_file('metadata', rule_file, num_rows=None)
+        rules = read_adls_file('metadata', rule_file, 'Y')
         if "Error" in rules:
             return rules
         rule_info = StringIO(rules)
@@ -635,7 +635,7 @@ def process_chunk(partition, prefix, columns, comparison_operator, values, oprtr
     print(column_names)
     chunk = pd.DataFrame(list(partition), columns=column_names)
     met_file = "METADATA/metadata.csv"
-    metadata = read_adls_file('metadata', met_file, num_rows=None)
+    metadata = read_adls_file('metadata', met_file, 'Y')
     if "Error" in metadata:
         return metadata
     data = StringIO(metadata)
@@ -728,7 +728,7 @@ def process_chunk(partition, prefix, columns, comparison_operator, values, oprtr
 
 def validate_rule(container, latest_file, file, delimiter):
     rule_file = "METADATA/rules.csv"
-    rules = read_adls_file('metadata', rule_file, num_rows=None)
+    rules = read_adls_file('metadata', rule_file, 'Y')
     if "Error" in rules:
         return rules
     rule_info = StringIO(rules)
@@ -811,7 +811,7 @@ def file_validate():
         container = request.form['category']
         file = request.form['subcategory']
         met_file = "METADATA/metadata.csv"
-        metadata = read_adls_file('metadata', met_file, num_rows=None)
+        metadata = read_adls_file('metadata', met_file, 'Y')
         if "Error" in metadata:
             return metadata
         data = StringIO(metadata)
@@ -838,14 +838,14 @@ def file_validate():
         # time_string = dt_object.strftime("%Y-%m-%d")
         processed_on = str(datetime.date.today())
         inf_file = "METADATA/information.csv"
-        info = read_adls_file('metadata', inf_file, num_rows=None)
+        info = read_adls_file('metadata', inf_file, 'Y')
         if "Error" in info:
             return info
         data_info = StringIO(info)
         df1 = pd.read_csv(data_info, sep='|', usecols=['FILE_NAME', 'DATE', 'STATUS'])
         fil_df = df1.loc[(df1['FILE_NAME'] == file_name) & (df1['STATUS'] == 'VALID'), ['DATE', 'STATUS']]
         if fil_df.empty:
-            ext, directory, header, delimiter = read_header(container, latest_file, 20)
+            ext, directory, header, delimiter = read_header(container, latest_file)
             # structure = check_file_structure(latest_file, delimiter)
             reason = ""
             val_dict = {}
@@ -914,7 +914,7 @@ def update_file():
     if response == 'OK':
         updated_data = {}
         met_file = "METADATA/metadata.csv"
-        metadata = read_adls_file('metadata', met_file, num_rows=None)
+        metadata = read_adls_file('metadata', met_file, 'Y')
         if "Error" in metadata:
             return metadata
         data = StringIO(metadata)
